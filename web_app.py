@@ -322,16 +322,15 @@ def generate():
     field_keys = [f[0] for f in PLACEHOLDERS] + ["NUM_PLOTS_WORDS_UPPER"]
     data = {k: vals.get(k, "") for k in field_keys}
 
-    # Generate into a temp file then read bytes
-    import tempfile, shutil
-    tmp_dir = tempfile.mkdtemp()
+    # Generate contract and read the output bytes
     try:
-        out_path = generate_contract(data, output_dir=tmp_dir)
+        out_path = generate_contract(data)
         filename = os.path.basename(out_path)
         with open(out_path, "rb") as f:
             docx_bytes = f.read()
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+    except Exception as e:
+        flash(f"Error generating contract: {e}", "error")
+        return render_template_string(HTML, messages=get_flashed_messages_with_categories(), vals=vals, email_configured=_email_configured())
 
     if action == "email":
         customer_email = vals.get("customer_email", "").strip()
