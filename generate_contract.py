@@ -144,6 +144,12 @@ def generate_contract(fields_dict: dict, template_path: str = None, output_dir: 
         placeholder = "{{" + key + "}}"
         _replace_in_doc(doc, placeholder, str(value))
 
+    # Also replace any remaining placeholders not in FIELD_KEYS (in case user provides extra keys)
+    for key, value in data.items():
+        if key not in FIELD_KEYS:
+            placeholder = "{{" + key + "}}"
+            _replace_in_doc(doc, placeholder, str(value))
+
     # Build safe filename
     customer_safe = (
         data.get("CUSTOMER_NAME", "CUSTOMER")
@@ -156,7 +162,9 @@ def generate_contract(fields_dict: dict, template_path: str = None, output_dir: 
     filename = f"CONTRACT_{customer_safe}_{today}.docx"
 
     os.makedirs(output_dir, exist_ok=True)
-    out_path = os.path.join(os.path.abspath(output_dir), filename)
+    out_dir = os.path.dirname(os.path.abspath(template_path)) if output_dir == "." else output_dir
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, filename)
     doc.save(out_path)
     return out_path
 
@@ -206,7 +214,7 @@ def chat_mode(output_dir: str = "."):
         else:
             print("Please enter 'y' or 'n'.")
 
-    out_path = generate_contract(data, output_dir=output_dir)
+    out_path = generate_contract(data, template_path=TEMPLATE_PATH, output_dir=output_dir)
     print(f"\nContract generated successfully: {out_path}")
 
 
@@ -249,7 +257,7 @@ def batch_mode(xlsx_path: str, output_dir: str = "."):
                 data[key] = ""
 
         try:
-            out_path = generate_contract(data, output_dir=output_dir)
+            out_path = generate_contract(data, template_path=TEMPLATE_PATH, output_dir=output_dir)
             print(f"  Row {row_idx}: Generated {os.path.basename(out_path)}")
             generated += 1
         except Exception as e:
