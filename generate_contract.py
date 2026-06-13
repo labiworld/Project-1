@@ -51,6 +51,16 @@ def replace_in_paragraph(paragraph, old, new):
                     run.text = new_text if i == 0 else ''
 
 
+def replace_in_xml(element, old, new):
+    """Replace text directly in XML — handles text boxes and drawing canvases."""
+    from lxml import etree
+    xml_str = etree.tostring(element, encoding='unicode')
+    if old in xml_str:
+        xml_str = xml_str.replace(f'>{old}<', f'>{new}<')
+        new_element = etree.fromstring(xml_str)
+        element.getparent().replace(element, new_element)
+
+
 def generate_contract(fields_dict, template_path=DEFAULT_TEMPLATE):
     """
     Generate a contract docx from a fields dictionary and template.
@@ -62,13 +72,19 @@ def generate_contract(fields_dict, template_path=DEFAULT_TEMPLATE):
 
     for key, value in fields_dict.items():
         placeholder = f"{{{{{key}}}}}"
+        val = str(value)
+        # Replace in normal paragraphs
         for para in doc.paragraphs:
-            replace_in_paragraph(para, placeholder, str(value))
+            replace_in_paragraph(para, placeholder, val)
+            # Also replace in text boxes / drawings inside this paragraph
+            if placeholder in para._element.xml:
+                replace_in_xml(para._element, placeholder, val)
+        # Replace in tables
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for para in cell.paragraphs:
-                        replace_in_paragraph(para, placeholder, str(value))
+                        replace_in_paragraph(para, placeholder, val)
 
     customer_name = fields_dict.get("CUSTOMER_NAME", "CUSTOMER").replace(" ", "_").replace(".", "")
     date_str = datetime.now().strftime("%Y%m%d")
