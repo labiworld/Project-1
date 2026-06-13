@@ -4,14 +4,14 @@ LandCulture Investment Ltd — Contract of Sale Generator
 ========================================================
 Usage:
   Chat mode (default):
-      python generate_contract.py
+      python3 generate_contract.py
 
   Batch mode:
-      python generate_contract.py --batch customers.xlsx
+      python3 generate_contract.py --batch customers.xlsx
 
-  Output directory (optional):
-      python generate_contract.py --output-dir ./contracts
-      python generate_contract.py --batch customers.xlsx --output-dir ./contracts
+  Optional output directory:
+      python3 generate_contract.py --output-dir ./contracts
+      python3 generate_contract.py --batch customers.xlsx --output-dir ./contracts
 """
 
 import argparse
@@ -32,37 +32,38 @@ except ImportError:
     sys.exit(1)
 
 # ---------------------------------------------------------------------------
-# Template path (relative to this script's directory)
+# Template path (always relative to this script's directory)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_PATH = os.path.join(SCRIPT_DIR, "contract_template.docx")
 
 # ---------------------------------------------------------------------------
-# Field definitions (in collection order)
+# Field definitions — (key, description, example_value)
+# These map directly to {{KEY}} placeholders in the template.
 # ---------------------------------------------------------------------------
 FIELDS = [
-    ("CONTRACT_DAY",           "Contract day (e.g. 5th)"),
-    ("CONTRACT_MONTH",         "Contract month (e.g. June)"),
-    ("CONTRACT_YEAR",          "Contract year (e.g. 2026)"),
-    ("CUSTOMER_NAME",          "Customer full name in caps (e.g. MR. OJOLOWO BOLUWATIFE)"),
-    ("CUSTOMER_ADDRESS",       "Customer address (e.g. 9, OYEBANKE OSUNSANYA CRESCENT, LAGOS)"),
-    ("NUM_PLOTS_WORDS",        "Number of plots — words+digits (e.g. Two (2))"),
-    ("NUM_PLOTS_DIGITS",       "Number of plots — digit only (e.g. 2)"),
-    ("PLOT_SIZE_SQM",          "Plot size in sqm (e.g. 900)"),
-    ("TOTAL_PRICE_DIGITS",     "Total price in digits (e.g. 3,000,000)"),
-    ("TOTAL_PRICE_WORDS",      "Total price in words caps (e.g. THREE MILLION NAIRA ONLY)"),
-    ("DEPOSIT_DIGITS",         "Deposit amount in digits (e.g. 800,000.00)"),
-    ("DEPOSIT_WORDS",          "Deposit amount in words caps (e.g. EIGHT HUNDRED THOUSAND NAIRA ONLY)"),
-    ("BALANCE_DIGITS",         "Balance amount in digits (e.g. 2,200,000.00)"),
-    ("BALANCE_WORDS",          "Balance amount in words caps (e.g. TWO MILLION, TWO HUNDRED THOUSAND NAIRA ONLY)"),
-    ("PAYMENT_START_DATE",     "Payment start date (e.g. 26th March, 2026)"),
-    ("PAYMENT_DURATION_MONTHS","Payment duration in months (e.g. 12)"),
-    ("PAYMENT_END_DATE",       "Payment end date (e.g. 26th Day of March, 2027)"),
-    ("PAYMENT_START_DAY_FULL", "Payment deadline in full caps (e.g. 26TH MARCH, 2027)"),
-    ("NUM_PLOTS_WORDS_UPPER",  "Number of plots — words+digits in caps (e.g. TWO (2))"),
+    ("CONTRACT_DAY",            "Contract day (ordinal)",              "5th"),
+    ("CONTRACT_MONTH",          "Contract month",                      "June"),
+    ("CONTRACT_YEAR",           "Contract year",                       "2026"),
+    ("CUSTOMER_NAME",           "Customer full name in CAPS",          "MR. OJOLOWO BOLUWATIFE"),
+    ("CUSTOMER_ADDRESS",        "Customer address",                    "9, OYEBANKE OSUNSANYA CRESCENT, LAGOS"),
+    ("NUM_PLOTS_WORDS",         "Number of plots — words+digits combo","Two (2)"),
+    ("NUM_PLOTS_DIGITS",        "Number of plots — digit only",        "2"),
+    ("PLOT_SIZE_SQM",           "Plot size in sqm",                    "900"),
+    ("TOTAL_PRICE_DIGITS",      "Total price in digits",               "3,000,000"),
+    ("TOTAL_PRICE_WORDS",       "Total price in CAPS words",           "THREE MILLION NAIRA ONLY"),
+    ("DEPOSIT_DIGITS",          "Deposit amount in digits",            "800,000.00"),
+    ("DEPOSIT_WORDS",           "Deposit amount in CAPS words",        "EIGHT HUNDRED THOUSAND NAIRA ONLY"),
+    ("BALANCE_DIGITS",          "Balance amount in digits",            "2,200,000.00"),
+    ("BALANCE_WORDS",           "Balance amount in CAPS words",        "TWO MILLION, TWO HUNDRED THOUSAND NAIRA ONLY"),
+    ("PAYMENT_START_DATE",      "Payment start date",                  "26th March, 2026"),
+    ("PAYMENT_DURATION_MONTHS", "Payment duration in months",          "12"),
+    ("PAYMENT_END_DATE",        "Payment end date",                    "26th Day of March, 2027"),
+    ("PAYMENT_START_DAY_FULL",  "Payment deadline in full CAPS",       "26TH MARCH, 2027"),
 ]
 
-FIELD_KEYS = [f[0] for f in FIELDS]
+# NUM_PLOTS_DIGITS_UPPER is auto-derived from NUM_PLOTS_WORDS (uppercased) — not asked separately
+FIELD_KEYS = [f[0] for f in FIELDS] + ["NUM_PLOTS_DIGITS_UPPER"]
 
 
 # ---------------------------------------------------------------------------
@@ -79,13 +80,15 @@ def _replace_in_paragraph(paragraph, old, new):
         if old in run.text:
             run.text = run.text.replace(old, new)
 
-    # Pass 2: if still present, the text is split across runs — rebuild
+    # Pass 2: if still present the text is split across runs — rebuild
     if old in paragraph.text:
         full_text = "".join(run.text for run in paragraph.runs)
         if old in full_text:
             new_text = full_text.replace(old, new)
-            for i, run in enumerate(paragraph.runs):
-                run.text = new_text if i == 0 else ""
+            if paragraph.runs:
+                paragraph.runs[0].text = new_text
+                for run in paragraph.runs[1:]:
+                    run.text = ""
 
     return True
 
@@ -94,7 +97,6 @@ def _replace_in_doc(doc, old, new):
     """Replace *old* with *new* everywhere in *doc* (paragraphs + table cells)."""
     for para in doc.paragraphs:
         _replace_in_paragraph(para, old, new)
-
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -125,22 +127,28 @@ def generate_contract(data: dict, output_dir: str = ".") -> str:
     if not os.path.exists(TEMPLATE_PATH):
         raise FileNotFoundError(
             f"Template not found: {TEMPLATE_PATH}\n"
-            "Run create_template.py first."
+            "Run create_template.py first to generate the template."
         )
 
     doc = Document(TEMPLATE_PATH)
+
+    # Auto-derive NUM_PLOTS_DIGITS_UPPER if not explicitly provided
+    if "NUM_PLOTS_DIGITS_UPPER" not in data or not data["NUM_PLOTS_DIGITS_UPPER"]:
+        data = dict(data)
+        data["NUM_PLOTS_DIGITS_UPPER"] = data.get("NUM_PLOTS_WORDS", "").upper()
 
     for key in FIELD_KEYS:
         value = data.get(key, "")
         placeholder = "{{" + key + "}}"
         _replace_in_doc(doc, placeholder, str(value))
 
-    # Build filename
+    # Build safe filename
     customer_safe = (
         data.get("CUSTOMER_NAME", "CUSTOMER")
         .replace(" ", "_")
         .replace(".", "")
         .replace("/", "_")
+        .replace("\\", "_")
     )
     today = date.today().strftime("%Y-%m-%d")
     filename = f"CONTRACT_{customer_safe}_{today}.docx"
@@ -158,43 +166,28 @@ def generate_contract(data: dict, output_dir: str = ".") -> str:
 def _collect_fields_chat() -> dict:
     """Prompt the user one question at a time and return the collected data dict."""
     print("\n=== LandCulture Investment Ltd — Contract of Sale Generator ===")
-    print("Please answer each question. Press Enter to accept the example value shown.\n")
+    print("Answer each question. Press Enter to use the example value shown in brackets.\n")
 
     data = {}
-    for key, prompt in FIELDS:
-        # Find example from FIELDS list
-        example = ""
-        for field_key, field_prompt in FIELDS:
-            if field_key == key:
-                # Extract example from parentheses in prompt
-                if "(e.g." in field_prompt:
-                    example = field_prompt.split("(e.g. ")[1].rstrip(")")
-                break
-
-        display = f"{prompt}"
-        if example:
-            display += f" [{example}]"
-        display += ": "
-
+    for key, description, example in FIELDS:
+        prompt = f"{description} [{example}]: "
         while True:
-            value = input(display).strip()
-            if not value and example:
+            value = input(prompt).strip()
+            if not value:
                 value = example
                 print(f"  Using default: {value}")
             if value:
                 data[key] = value
                 break
-            print("  (Value is required, please enter a value)")
 
     return data
 
 
 def _print_summary(data: dict):
-    print("\n--- Summary ---")
-    for key, prompt in FIELDS:
-        label = prompt.split(" (e.g.")[0]
-        print(f"  {label}: {data.get(key, '')}")
-    print("---------------\n")
+    print("\n--- Summary of entered values ---")
+    for key, description, _ in FIELDS:
+        print(f"  {key}: {data.get(key, '')}")
+    print("---------------------------------\n")
 
 
 def chat_mode(output_dir: str = "."):
@@ -212,7 +205,7 @@ def chat_mode(output_dir: str = "."):
             print("Please enter 'y' or 'n'.")
 
     out_path = generate_contract(data, output_dir=output_dir)
-    print(f"\nContract generated: {out_path}")
+    print(f"\nContract generated successfully: {out_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +213,7 @@ def chat_mode(output_dir: str = "."):
 # ---------------------------------------------------------------------------
 
 def batch_mode(xlsx_path: str, output_dir: str = "."):
-    """Read customers from Excel and generate one contract per row."""
+    """Read customers from an Excel file and generate one contract per row."""
     if not os.path.exists(xlsx_path):
         print(f"ERROR: Excel file not found: {xlsx_path}")
         sys.exit(1)
@@ -229,15 +222,14 @@ def batch_mode(xlsx_path: str, output_dir: str = "."):
     ws = wb.active
 
     headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-    print(f"Columns found: {headers}")
+    print(f"Columns in Excel: {[h for h in headers if h]}")
 
-    # Map header -> column index
     col_map = {h: i for i, h in enumerate(headers) if h}
 
-    missing_fields = [k for k in FIELD_KEYS if k not in col_map]
-    if missing_fields:
-        print(f"WARNING: The following expected columns are missing from the Excel file:")
-        for f in missing_fields:
+    missing = [k for k in FIELD_KEYS if k not in col_map]
+    if missing:
+        print("WARNING: The following expected columns are missing from the Excel file:")
+        for f in missing:
             print(f"  - {f}")
 
     generated = 0
@@ -271,17 +263,18 @@ def batch_mode(xlsx_path: str, output_dir: str = "."):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="LandCulture Contract of Sale Generator"
+        description="LandCulture Investment Ltd — Contract of Sale Generator"
     )
     parser.add_argument(
         "--batch",
         metavar="EXCEL_FILE",
-        help="Path to customers Excel file for batch generation",
+        help="Path to customers Excel (.xlsx) file for batch generation",
     )
     parser.add_argument(
         "--output-dir",
         default=".",
-        help="Directory where generated contracts will be saved (default: current dir)",
+        metavar="DIR",
+        help="Directory for generated contracts (default: current directory)",
     )
     args = parser.parse_args()
 
