@@ -70,52 +70,49 @@ FIELD_KEYS = [f[0] for f in FIELDS] + ["NUM_PLOTS_DIGITS_UPPER"]
 # Core replacement helpers
 # ---------------------------------------------------------------------------
 
-def _replace_in_paragraph(paragraph, old, new):
+def replace_in_paragraph(paragraph, old, new):
     """Replace *old* with *new* in a paragraph, handling text split across runs."""
-    if old not in paragraph.text:
-        return False
-
-    # Pass 1: simple per-run replacement
-    for run in paragraph.runs:
-        if old in run.text:
-            run.text = run.text.replace(old, new)
-
-    # Pass 2: if still present the text is split across runs — rebuild
     if old in paragraph.text:
-        full_text = "".join(run.text for run in paragraph.runs)
-        if old in full_text:
-            new_text = full_text.replace(old, new)
-            if paragraph.runs:
-                paragraph.runs[0].text = new_text
-                for run in paragraph.runs[1:]:
-                    run.text = ""
+        for run in paragraph.runs:
+            if old in run.text:
+                run.text = run.text.replace(old, new)
+        if old in paragraph.text:
+            full_text = ''.join(run.text for run in paragraph.runs)
+            if old in full_text:
+                new_text = full_text.replace(old, new)
+                for i, run in enumerate(paragraph.runs):
+                    run.text = new_text if i == 0 else ''
 
-    return True
+
+# Aliases for internal use
+_replace_in_paragraph = replace_in_paragraph
 
 
 def _replace_in_doc(doc, old, new):
     """Replace *old* with *new* everywhere in *doc* (paragraphs + table cells)."""
     for para in doc.paragraphs:
-        _replace_in_paragraph(para, old, new)
+        replace_in_paragraph(para, old, new)
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
-                    _replace_in_paragraph(para, old, new)
+                    replace_in_paragraph(para, old, new)
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
-def generate_contract(data: dict, output_dir: str = ".") -> str:
+def generate_contract(fields_dict: dict, template_path: str = None, output_dir: str = ".") -> str:
     """
-    Fill the contract template with *data* and write a .docx file.
+    Fill the contract template with *fields_dict* and write a .docx file.
 
     Parameters
     ----------
-    data : dict
-        Keys must include all entries in FIELD_KEYS.
+    fields_dict : dict
+        Keys must include all entries in FIELD_KEYS (placeholder names without braces).
+    template_path : str, optional
+        Path to the contract template docx. Defaults to TEMPLATE_PATH.
     output_dir : str
         Directory where the output file will be saved.
 
@@ -124,13 +121,18 @@ def generate_contract(data: dict, output_dir: str = ".") -> str:
     str
         Absolute path of the generated file.
     """
-    if not os.path.exists(TEMPLATE_PATH):
+    if template_path is None:
+        template_path = TEMPLATE_PATH
+
+    data = fields_dict
+
+    if not os.path.exists(template_path):
         raise FileNotFoundError(
-            f"Template not found: {TEMPLATE_PATH}\n"
+            f"Template not found: {template_path}\n"
             "Run create_template.py first to generate the template."
         )
 
-    doc = Document(TEMPLATE_PATH)
+    doc = Document(template_path)
 
     # Auto-derive NUM_PLOTS_DIGITS_UPPER if not explicitly provided
     if "NUM_PLOTS_DIGITS_UPPER" not in data or not data["NUM_PLOTS_DIGITS_UPPER"]:
