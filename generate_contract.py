@@ -16,9 +16,6 @@ DEFAULT_TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'con
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'contracts')
 
 PLACEHOLDERS = [
-    ("CONTRACT_DAY", "Contract day (e.g. 5th)"),
-    ("CONTRACT_MONTH", "Contract month (e.g. June)"),
-    ("CONTRACT_YEAR", "Contract year (e.g. 2026)"),
     ("CUSTOMER_NAME", "Customer full name (e.g. MR. JOHN DOE)"),
     ("CUSTOMER_ADDRESS", "Customer address"),
     ("NUM_PLOTS_WORDS", "Number of plots in words (e.g. Two (2))"),
@@ -51,14 +48,12 @@ def replace_in_paragraph(paragraph, old, new):
                     run.text = new_text if i == 0 else ''
 
 
-def replace_in_xml(element, old, new):
-    """Replace text directly in XML — handles text boxes and drawing canvases."""
-    from lxml import etree
-    xml_str = etree.tostring(element, encoding='unicode')
-    if old in xml_str:
-        xml_str = xml_str.replace(f'>{old}<', f'>{new}<')
-        new_element = etree.fromstring(xml_str)
-        element.getparent().replace(element, new_element)
+def replace_in_xml_element(element, old, new):
+    """Replace text in w:t nodes inside any element (handles text boxes/drawings)."""
+    from docx.oxml.ns import qn as _qn
+    for t_node in element.iter(_qn('w:t')):
+        if t_node.text and old in t_node.text:
+            t_node.text = t_node.text.replace(old, new)
 
 
 def generate_contract(fields_dict, template_path=DEFAULT_TEMPLATE):
@@ -73,18 +68,17 @@ def generate_contract(fields_dict, template_path=DEFAULT_TEMPLATE):
     for key, value in fields_dict.items():
         placeholder = f"{{{{{key}}}}}"
         val = str(value)
-        # Replace in normal paragraphs
+        # Replace in ALL paragraphs including drawing/text-box content
         for para in doc.paragraphs:
             replace_in_paragraph(para, placeholder, val)
-            # Also replace in text boxes / drawings inside this paragraph
-            if placeholder in para._element.xml:
-                replace_in_xml(para._element, placeholder, val)
+            replace_in_xml_element(para._element, placeholder, val)
         # Replace in tables
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for para in cell.paragraphs:
                         replace_in_paragraph(para, placeholder, val)
+                        replace_in_xml_element(para._element, placeholder, val)
 
     customer_name = fields_dict.get("CUSTOMER_NAME", "CUSTOMER").replace(" ", "_").replace(".", "")
     date_str = datetime.now().strftime("%Y%m%d")

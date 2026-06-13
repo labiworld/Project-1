@@ -133,21 +133,6 @@ HTML = """
 
       <div class="grid">
 
-        <div class="section-title">Contract Date</div>
-
-        <div class="field">
-          <label>Day</label>
-          <input type="text" name="CONTRACT_DAY" placeholder="e.g. 5th" value="{{ vals.get('CONTRACT_DAY','') }}" required />
-        </div>
-        <div class="field">
-          <label>Month</label>
-          <input type="text" name="CONTRACT_MONTH" placeholder="e.g. June" value="{{ vals.get('CONTRACT_MONTH','') }}" required />
-        </div>
-        <div class="field">
-          <label>Year</label>
-          <input type="text" name="CONTRACT_YEAR" placeholder="e.g. 2026" value="{{ vals.get('CONTRACT_YEAR','2026') }}" required />
-        </div>
-
         <div class="section-title">Customer Information</div>
 
         <div class="field full">
