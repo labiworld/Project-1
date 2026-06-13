@@ -167,6 +167,19 @@ DASHBOARD_HTML = """
     .badge.no-deal { background: #fee2e2; color: #991b1b; }
     .empty { text-align: center; padding: 60px; color: #888; }
     .error-box { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 14px 20px; border-radius: 8px; margin-bottom: 20px; }
+    /* Mobile cards */
+    .contact-cards { display: none; }
+    .contact-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.07); padding: 16px; margin-bottom: 12px; }
+    .contact-card .name { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+    .contact-card .meta { font-size: .85rem; color: #555; margin-bottom: 12px; }
+    .contact-card .btn-generate { display: block; width: 100%; text-align: center; padding: 12px; font-size: 1rem; }
+    @media (max-width: 600px) {
+      header { padding: 14px 16px; }
+      .card { display: none; }
+      .contact-cards { display: block; }
+      .modal { width: 100%; max-width: 100%; max-height: 100vh; border-radius: 0; }
+      .field-row { grid-template-columns: 1fr; }
+    }
 
     /* Modal */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: center; justify-content: center; }
@@ -209,6 +222,7 @@ DASHBOARD_HTML = """
     <button class="btn-refresh" onclick="location.reload()">↻ Refresh</button>
   </div>
 
+  <!-- Desktop table -->
   <div class="card">
     {% if contacts %}
     <table>
@@ -235,6 +249,23 @@ DASHBOARD_HTML = """
         {% endfor %}
       </tbody>
     </table>
+    {% else %}
+    <div class="empty">No contacts found in HubSpot.</div>
+    {% endif %}
+  </div>
+
+  <!-- Mobile cards -->
+  <div class="contact-cards">
+    {% if contacts %}
+      {% for c in contacts %}
+      <div class="contact-card">
+        <div class="name">{{ c.name }}</div>
+        <div class="meta">{{ c.email or '—' }} &nbsp;·&nbsp; {{ c.phone or '—' }}</div>
+        <button class="btn-generate" onclick="openModal('{{ c.id }}', '{{ c.name }}')">
+          Generate COS
+        </button>
+      </div>
+      {% endfor %}
     {% else %}
     <div class="empty">No contacts found in HubSpot.</div>
     {% endif %}
