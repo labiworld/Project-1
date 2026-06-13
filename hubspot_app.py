@@ -334,7 +334,7 @@ function downloadContract() {
     return r.blob();
   })
   .then(blob => {
-    const name = (contractData.CUSTOMER_NAME || 'CUSTOMER').replace(/\s+/g, '_').replace(/\./g, '');
+    const name = (contractData.CUSTOMER_NAME || 'CUSTOMER').replace(/[\s]+/g, '_').replace(/[.]/g, '');
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `CONTRACT_${name}.docx`;

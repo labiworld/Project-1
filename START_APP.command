@@ -14,6 +14,7 @@ echo ""
 echo "Checking dependencies..."
 pip3 install flask python-docx openpyxl requests --quiet 2>/dev/null || \
 pip install flask python-docx openpyxl requests --quiet 2>/dev/null
+pip3 install requests --quiet 2>/dev/null || pip install requests --quiet 2>/dev/null
 
 echo ""
 echo "Which app do you want to start?"
