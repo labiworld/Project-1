@@ -1,42 +1,46 @@
 """
-Script to create contract_template.docx from the original document.
-Replaces customer-specific text with placeholders.
+Creates contract_template.docx from the original OJOLOWO_BOLUWATIFS.docx
+by replacing customer-specific values with {{PLACEHOLDER}} tokens.
 """
 from docx import Document
-import copy
+
+
+SOURCE = '/root/.claude/uploads/0a666ae4-7959-5a8f-b94b-8116a61fa32c/c8be110a-OJOLOWO_BOLUWATIFS.docx'
+OUTPUT = '/home/user/Project-1/contract_template.docx'
 
 
 def replace_in_paragraph(paragraph, old, new):
-    """Replace text in a paragraph, handling text split across runs."""
+    """Replace old->new in a paragraph, handling text split across runs."""
     if old not in paragraph.text:
         return False
 
-    # First try simple per-run replacement
+    # Try simple per-run replacement first
     replaced = False
     for run in paragraph.runs:
         if old in run.text:
             run.text = run.text.replace(old, new)
             replaced = True
 
-    # If still not replaced (split across runs), rebuild full text
+    # If still not replaced (split across runs), rebuild into first run
     if old in paragraph.text:
         full_text = ''.join(run.text for run in paragraph.runs)
         if old in full_text:
             new_text = full_text.replace(old, new)
-            for i, run in enumerate(paragraph.runs):
-                run.text = new_text if i == 0 else ''
+            if paragraph.runs:
+                paragraph.runs[0].text = new_text
+                for run in paragraph.runs[1:]:
+                    run.text = ''
             replaced = True
 
     return replaced
 
 
-def replace_in_doc(doc, old, new):
+def replace_all(doc, old, new):
     """Replace text throughout all paragraphs and table cells."""
     count = 0
     for para in doc.paragraphs:
         if replace_in_paragraph(para, old, new):
             count += 1
-
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
@@ -46,118 +50,113 @@ def replace_in_doc(doc, old, new):
     return count
 
 
-def create_template():
-    src = '/root/.claude/uploads/0a666ae4-7959-5a8f-b94b-8116a61fa32c/c8be110a-OJOLOWO_BOLUWATIFS.docx'
-    doc = Document(src)
+# Ordered list — longer / more specific strings first to avoid partial matches
+REPLACEMENTS = [
+    # ---- Date line ----
+    ('……...Day of…………………. 2026', '{{CONTRACT_DAY}} Day of {{CONTRACT_MONTH}} {{CONTRACT_YEAR}}'),
 
-    # Order matters: replace longer/more specific strings first to avoid partial matches
+    # ---- Customer ----
+    ('MR. OJOLOWO BOLUWATIFE', '{{CUSTOMER_NAME}}'),
+    ('9, OYEBANKE OSUNSANYA CRESCENT, LAGOS', '{{CUSTOMER_ADDRESS}}'),
 
-    replacements = [
-        # Date line
-        ('……...Day of…………………. 2026', '{{CONTRACT_DAY}} Day of {{CONTRACT_MONTH}} {{CONTRACT_YEAR}}'),
+    # ---- Balance (longest money phrase first) ----
+    ('₦2,200,000.00  (TWO MILLION, TWO HUNDRED THOUSAND NAIRA ONLY)', '₦{{BALANCE_DIGITS}}  ({{BALANCE_WORDS}})'),
+    ('TWO MILLION, TWO HUNDRED THOUSAND NAIRA ONLY', '{{BALANCE_WORDS}}'),
+    ('2,200,000.00', '{{BALANCE_DIGITS}}'),
 
-        # Customer name (appears in multiple places)
-        ('MR. OJOLOWO BOLUWATIFE', '{{CUSTOMER_NAME}}'),
+    # ---- Deposit ----
+    # In original P38, run4='EIGHT ' run5='HUNDRED THOUSAND NAIRA ONLY)' — handle split
+    ('EIGHT HUNDRED THOUSAND NAIRA ONLY', '{{DEPOSIT_WORDS}}'),
+    ('800,000.00', '{{DEPOSIT_DIGITS}}'),
 
-        # Customer address
-        ('9, OYEBANKE OSUNSANYA CRESCENT, LAGOS', '{{CUSTOMER_ADDRESS}}'),
+    # ---- Total price (word form) ----
+    # P37: run5='THREE MILLION NAIRA ONLY'  — fine
+    # P115: runs split as '3,000,0' '00,000 (T' 'HREE MILLION NAIRA ONLY' ')'
+    #   We handle the word fragment separately after merging
+    ('THREE MILLION NAIRA ONLY', '{{TOTAL_PRICE_WORDS}}'),
+    # Catch fragment left over from P115 split (T already consumed by merge)
+    ('HREE MILLION NAIRA ONLY', '{{TOTAL_PRICE_WORDS}}'),
+    # ---- Total price (digit form) ----
+    # P37 has '3,000' ',' '000 (' spread across runs — merge first via paragraph scan
+    ('3,000,000', '{{TOTAL_PRICE_DIGITS}}'),
 
-        # Prices - longer/more specific first
-        ('THREE MILLION NAIRA ONLY', '{{TOTAL_PRICE_WORDS}}'),
-        ('HREE MILLION NAIRA ONLY', '{{TOTAL_PRICE_WORDS_FRAGMENT}}'),  # handle split run in P115
-        ('EIGHT HUNDRED THOUSAND NAIRA ONLY', '{{DEPOSIT_WORDS}}'),
-        ('EIGHT \nHUNDRED THOUSAND NAIRA ONLY', '{{DEPOSIT_WORDS}}'),
-        ('TWO MILLION, TWO HUNDRED THOUSAND NAIRA ONLY', '{{BALANCE_WORDS}}'),
-        ('TWO MILLION, TWO HUNDRED THOUSAND NAIRA ONLY)', '{{BALANCE_WORDS}})'),
+    # ---- Payment dates ----
+    ('26th Day of March, 2027', '{{PAYMENT_END_DATE}}'),
+    # P42 has '26th' split as run8='2' run9='6' run10='th' run11=' March, 2026'
+    # and run15='2' run16='6' run17='th' run18=' Day of' run20='March 2026 to...'
+    # The paragraph-merge approach will combine them
+    ('26th March, 2026', '{{PAYMENT_START_DATE}}'),
+    # Second occurrence in P42: "26th Day of March 2026" (split across runs 15-20)
+    ('26th Day of March 2026', '{{PAYMENT_START_DATE}}'),
+    # Duration
+    ('12months', '{{PAYMENT_DURATION_MONTHS}} months'),
+    ('12 months', '{{PAYMENT_DURATION_MONTHS}} months'),
+    # P118 default date
+    ('26TH MARCH, 2027', '{{PAYMENT_START_DAY_FULL}}'),
 
-        # Numeric amounts - more specific first
-        ('₦3,000,000 (', '₦{{TOTAL_PRICE_DIGITS}} ('),
-        ('₦800,000.00 (', '₦{{DEPOSIT_DIGITS}} ('),
-        ('₦2,200,000.00  (', '₦{{BALANCE_DIGITS}}  ('),
+    # ---- Plot counts ----
+    # "Two (2)" lowercase-first in P28
+    ('Two (2)', '{{NUM_PLOTS_WORDS}}'),
+    # "TWO (2)" uppercase in P38, P83, P115
+    ('TWO (2)', '{{NUM_PLOTS_WORDS}}'),
 
-        # Plot counts - more specific first
-        ('Two (2)', '{{NUM_PLOTS_WORDS}}'),
-        ('TWO (2)', '{{NUM_PLOTS_WORDS_UPPER}}'),
+    # ---- Plot size ----
+    ('900 Square Meters', '{{PLOT_SIZE_SQM}} Square Meters'),
+]
 
-        # Plot size
-        ('900 Square Meters', '{{PLOT_SIZE_SQM}} Square Meters'),
 
-        # Payment dates and durations
-        ('26th March, 2026', '{{PAYMENT_START_DATE}}'),
-        ('12months', '{{PAYMENT_DURATION_MONTHS}}months'),
-        ('26th Day of March 2026', '{{PAYMENT_START_DATE}} Day'),   # partial - handle carefully
-        ('26th Day of March, 2027', '{{PAYMENT_END_DATE}}'),
-        ('26TH MARCH, 2027', '{{PAYMENT_START_DAY_FULL}}'),
-    ]
+def main():
+    doc = Document(SOURCE)
 
-    for old, new in replacements:
-        n = replace_in_doc(doc, old, new)
-        if n:
-            print(f'  Replaced "{old[:50]}" -> "{new[:50]}" ({n} para(s))')
-        # else:
-        #     print(f'  NOT FOUND: "{old[:60]}"')
+    for old, new in REPLACEMENTS:
+        n = replace_all(doc, old, new)
+        status = f'({n} place(s))' if n else 'NOT FOUND'
+        print(f'  {old[:55]!r:58} -> {new[:40]!r}  {status}')
 
-    # Now fix up the fragment from P115 split run
-    # P115: '₦3,000,000,000 (THREE MILLION...' - this is a typo in original doc (3 billion vs 3 million)
-    # The run split was: run6='3,000,0' run7='00,000 (T' run8='HREE MILLION NAIRA ONLY'
-    # After the replacements above these runs will have been merged or may still be split
-    # Let's do targeted fix for that paragraph
-    for para in doc.paragraphs:
-        if '{{TOTAL_PRICE_WORDS_FRAGMENT}}' in para.text:
-            replace_in_paragraph(para, '{{TOTAL_PRICE_WORDS_FRAGMENT}}', '{{TOTAL_PRICE_WORDS}}')
-            print('  Fixed TOTAL_PRICE_WORDS_FRAGMENT -> TOTAL_PRICE_WORDS')
-
-    # Fix '{{NUM_PLOTS_WORDS_UPPER}}' back to proper placeholder
-    # In context: "TWO (2)" appears in several places, we want consistent placeholder
-    for para in doc.paragraphs:
-        if '{{NUM_PLOTS_WORDS_UPPER}}' in para.text:
-            replace_in_paragraph(para, '{{NUM_PLOTS_WORDS_UPPER}}', '{{NUM_PLOTS_WORDS}}')
-
-    # Handle the P42 split runs for dates: '26th' is split as run8='2' run9='6' run10='th'
-    # After merging via replace_in_paragraph approach they should be combined
-    # But payment start date text '26th March, 2026' may be split
-    # Let's check and fix P42 specifically by looking at full text
-    for para in doc.paragraphs:
-        if '{{PAYMENT_START_DATE}} Day' in para.text:
-            # This was incorrectly replaced, revert that part
-            replace_in_paragraph(para, '{{PAYMENT_START_DATE}} Day', '{{PAYMENT_START_DATE}}')
-            print('  Fixed PAYMENT_START_DATE Day fragment')
-
-    # Fix 12months -> {{PAYMENT_DURATION_MONTHS}} months
-    for para in doc.paragraphs:
-        if '{{PAYMENT_DURATION_MONTHS}}months' in para.text:
-            replace_in_paragraph(para, '{{PAYMENT_DURATION_MONTHS}}months', '{{PAYMENT_DURATION_MONTHS}} months')
-            print('  Fixed PAYMENT_DURATION_MONTHS months')
-
-    # Handle ₦3,000,0 split in P115 (the actual price paragraph)
-    # After replacing '₦3,000,000 (' we also need to handle P115 which shows ₦3,000,000,000
-    # but the runs are split: run6='3,000,0' run7='00,000 (T'
-    # The full_text approach should handle this when we replace '3,000,0\n00,000 (T'
-    # Let's scan for any remaining issues
+    # Special-case: P115 has a typo "₦3,000,000,000" with runs deeply split.
+    # After the per-run pass the paragraph text may still contain pieces.
+    # Do a targeted full-text merge for any paragraph that still has an
+    # unreplaced total-price digit fragment.
     for para in doc.paragraphs:
         ft = para.text
-        if '3,000,0' in ft and '00,000' in ft:
-            # This is the split price in P115 - fix it
+        if '3,000,0' in ft and 'TOTAL_PRICE_DIGITS' not in ft:
             full = ''.join(r.text for r in para.runs)
-            if '3,000,0' in full:
-                new_full = full.replace('3,000,000,000', '{{TOTAL_PRICE_DIGITS}}')
-                if new_full != full:
-                    for i, run in enumerate(para.runs):
-                        run.text = new_full if i == 0 else ''
-                    print('  Fixed split 3,000,000,000 in P115')
+            # Could be 3,000,000 or 3,000,000,000 (typo in original)
+            fixed = full.replace('3,000,000,000', '{{TOTAL_PRICE_DIGITS}}')
+            fixed = fixed.replace('3,000,000', '{{TOTAL_PRICE_DIGITS}}')
+            if fixed != full and para.runs:
+                para.runs[0].text = fixed
+                for r in para.runs[1:]:
+                    r.text = ''
+                print(f'  Fixed split price digits in paragraph: {fixed[:80]!r}')
 
-    # Save template
-    out = '/home/user/Project-1/contract_template.docx'
-    doc.save(out)
-    print(f'\nTemplate saved to: {out}')
+    doc.save(OUTPUT)
+    print(f'\nTemplate saved: {OUTPUT}')
 
-    # Verify
-    doc2 = Document(out)
-    print('\nVerification - paragraphs containing placeholders:')
-    for i, para in enumerate(doc2.paragraphs):
-        if '{{' in para.text:
-            print(f'  P{i}: {para.text[:120]}')
+    # ---- Verification ----
+    doc2 = Document(OUTPUT)
+    full_text = '\n'.join(p.text for p in doc2.paragraphs)
+
+    required = [
+        'CONTRACT_DAY', 'CONTRACT_MONTH', 'CONTRACT_YEAR',
+        'CUSTOMER_NAME', 'CUSTOMER_ADDRESS',
+        'NUM_PLOTS_WORDS',
+        'PLOT_SIZE_SQM',
+        'TOTAL_PRICE_DIGITS', 'TOTAL_PRICE_WORDS',
+        'DEPOSIT_DIGITS', 'DEPOSIT_WORDS',
+        'BALANCE_DIGITS', 'BALANCE_WORDS',
+        'PAYMENT_START_DATE', 'PAYMENT_DURATION_MONTHS',
+        'PAYMENT_END_DATE', 'PAYMENT_START_DAY_FULL',
+    ]
+    print('\nPlaceholder check:')
+    all_ok = True
+    for p in required:
+        found = '{{' + p + '}}' in full_text
+        print(f'  {{{{ {p} }}}}: {"OK" if found else "MISSING ***"}')
+        if not found:
+            all_ok = False
+    print('\nTemplate creation:', 'PASS' if all_ok else 'FAIL — some placeholders missing')
 
 
 if __name__ == '__main__':
-    create_template()
+    main()
