@@ -458,6 +458,7 @@ if __name__ == "__main__":
     if not os.environ.get("HUBSPOT_TOKEN"):
         print("ERROR: Set HUBSPOT_TOKEN in your .env file")
     else:
-        print("\n=== LandCulture Legal Dashboard ===")
-        print("Open your browser at: http://localhost:5001\n")
-        app.run(debug=False, host="0.0.0.0", port=5001)
+        port = int(os.environ.get("PORT", 5001))
+        print(f"\n=== LandCulture Legal Dashboard ===")
+        print(f"Open your browser at: http://localhost:{port}\n")
+        app.run(debug=False, host="0.0.0.0", port=port)
