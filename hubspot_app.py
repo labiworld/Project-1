@@ -172,8 +172,10 @@ DASHBOARD_HTML = """
     .field { display: flex; flex-direction: column; gap: 4px; }
     .field.full { grid-column: 1 / -1; }
     .field label { font-size: .75rem; font-weight: 700; text-transform: uppercase; color: #555; }
-    .field-val { padding: 8px 10px; background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 6px; font-size: .88rem; color: #222; min-height: 36px; }
-    .field-val.missing { background: #fff3cd; border-color: #ffc107; color: #856404; }
+    .field input[type=text] { padding: 8px 10px; background: #fff; border: 1px solid #cdd5e0; border-radius: 6px; font-size: .88rem; color: #222; width: 100%; outline: none; transition: border-color .2s; }
+    .field input[type=text]:focus { border-color: #1a4b2e; box-shadow: 0 0 0 3px rgba(26,75,46,.1); }
+    .field input[type=text].missing { background: #fff3cd; border-color: #ffc107; }
+    .field input[type=text].missing:focus { border-color: #1a4b2e; background: #fff; }
     .modal-footer { padding: 16px 24px; border-top: 1px solid #eee; display: flex; gap: 12px; justify-content: flex-end; }
     .btn-cancel { background: #e5e7eb; color: #444; border: none; padding: 10px 22px; border-radius: 7px; cursor: pointer; font-weight: 600; }
     .btn-dl { background: #1a4b2e; color: #fff; border: none; padding: 10px 22px; border-radius: 7px; cursor: pointer; font-weight: 600; font-size: .95rem; }
@@ -304,8 +306,8 @@ function renderModal(data) {
       html += `<div class="section-label">${f.section}</div>`;
     }
     html += `<div class="field">
-      <label>${f.label}</label>
-      <div class="field-val ${missing ? 'missing' : ''}">${val || '⚠ Missing in HubSpot'}</div>
+      <label>${f.label}${missing ? ' <span style="color:#b45309;font-weight:400;text-transform:none;">⚠ missing</span>' : ''}</label>
+      <input type="text" id="field_${f.key}" name="${f.key}" value="${val}" placeholder="Enter ${f.label.toLowerCase()}" class="${missing ? 'missing' : ''}" oninput="this.classList.remove('missing')" />
     </div>`;
   });
   html += '</div>';
@@ -320,6 +322,13 @@ function closeModal() {
 
 function downloadContract() {
   if (!contractData) return;
+
+  // Read current values from the editable inputs
+  const payload = {};
+  document.querySelectorAll('#modal-body input[type=text]').forEach(inp => {
+    payload[inp.name] = inp.value.trim();
+  });
+
   const btn = document.getElementById('btn-download');
   btn.textContent = 'Generating...';
   btn.disabled = true;
@@ -327,14 +336,14 @@ function downloadContract() {
   fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(contractData)
+    body: JSON.stringify(payload)
   })
   .then(r => {
     if (!r.ok) return r.text().then(t => { throw new Error(t); });
     return r.blob();
   })
   .then(blob => {
-    const name = (contractData.CUSTOMER_NAME || 'CUSTOMER').replace(/[\s]+/g, '_').replace(/[.]/g, '');
+    const name = (payload.CUSTOMER_NAME || 'CUSTOMER').replace(/[\s]+/g, '_').replace(/[.]/g, '');
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `CONTRACT_${name}.docx`;
