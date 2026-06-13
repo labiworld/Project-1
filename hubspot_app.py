@@ -30,11 +30,19 @@ def hs_headers():
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
-def get_contacts(limit=50):
-    """Fetch recent contacts from HubSpot."""
-    props = "firstname,lastname,email,phone,address,city,state"
-    url = f"https://api.hubapi.com/crm/v3/objects/contacts?limit={limit}&properties={props}&sorts=-createdate"
-    r = requests.get(url, headers=hs_headers())
+def get_contacts(limit=30):
+    """Fetch the 30 most recently created contacts from HubSpot."""
+    props = ["firstname", "lastname", "email", "phone", "address", "city", "state"]
+    payload = {
+        "limit": limit,
+        "properties": props,
+        "sorts": [{"propertyName": "createdate", "direction": "DESCENDING"}],
+    }
+    r = requests.post(
+        "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        headers=hs_headers(),
+        json=payload,
+    )
     r.raise_for_status()
     return r.json().get("results", [])
 
@@ -209,7 +217,6 @@ DASHBOARD_HTML = """
           <th>Customer Name</th>
           <th>Email</th>
           <th>Phone</th>
-          <th>Deal</th>
           <th>Action</th>
         </tr>
       </thead>
@@ -219,13 +226,6 @@ DASHBOARD_HTML = """
           <td><strong>{{ c.name }}</strong></td>
           <td>{{ c.email or '—' }}</td>
           <td>{{ c.phone or '—' }}</td>
-          <td>
-            {% if c.has_deal %}
-            <span class="badge">Deal linked</span>
-            {% else %}
-            <span class="badge no-deal">No deal</span>
-            {% endif %}
-          </td>
           <td>
             <button class="btn-generate" onclick="openModal('{{ c.id }}', '{{ c.name }}')">
               Generate COS
@@ -378,27 +378,16 @@ def dashboard():
     contacts = []
     error = None
     try:
-        raw = get_contacts(50)
+        raw = get_contacts(30)
         for c in raw:
             p = c.get("properties", {})
             first = p.get("firstname") or ""
             last  = p.get("lastname") or ""
-            # Check if has associated deals
-            try:
-                r = requests.get(
-                    f"https://api.hubapi.com/crm/v3/objects/contacts/{c['id']}/associations/deals",
-                    headers=hs_headers()
-                )
-                has_deal = len(r.json().get("results", [])) > 0 if r.status_code == 200 else False
-            except:
-                has_deal = False
-
             contacts.append({
-                "id":       c["id"],
-                "name":     f"{first} {last}".strip() or f"Contact {c['id']}",
-                "email":    p.get("email", ""),
-                "phone":    p.get("phone", ""),
-                "has_deal": has_deal,
+                "id":    c["id"],
+                "name":  f"{first} {last}".strip() or f"Contact {c['id']}",
+                "email": p.get("email", ""),
+                "phone": p.get("phone", ""),
             })
     except Exception as e:
         error = str(e)
