@@ -72,12 +72,12 @@ def get_deals_for_contact(contact_id):
     deals = []
     props = ",".join([
         "dealname", "closedate", "amount",
-        "last_payment_made", "balance_digits", "balance_words",
+        "last_payment_made", "balance_digits", "total_balance_remaining_in_words", "balance_words",
         "plot_size", "plot_size_sqm",
         "number_of_plot", "num_plots_words", "num_plots_upper",
         "payment_type", "payment_duration_months",
-        "initial_payment", "deposit_digits", "deposit_words",
-        "total_price_digits", "total_price_words",
+        "initial_payment", "initial_payment_in_words", "deposit_digits", "deposit_words",
+        "total_price_digits", "total_price_words", "amount_in_words",
         "expected_payment_date", "payment_start_date", "payment_end_date", "payment_start_day_full",
     ])
     for did in deal_ids[:5]:
@@ -169,11 +169,11 @@ def build_contract_data(contact, deal=None):
         "NUM_PLOTS_DIGITS":        num_plots_digits,
         "PLOT_SIZE_SQM":           g(dp, "plot_size", "plot_size_sqm"),
         "TOTAL_PRICE_DIGITS":      fmt_money(dp, "amount", "total_price_digits"),
-        "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
+        "TOTAL_PRICE_WORDS":       g(dp, "amount_in_words", "total_price_words"),
         "DEPOSIT_DIGITS":          fmt_money(dp, "initial_payment", "deposit_digits"),
-        "DEPOSIT_WORDS":           g(dp, "deposit_words"),
+        "DEPOSIT_WORDS":           g(dp, "initial_payment_in_words", "deposit_words"),
         "BALANCE_DIGITS":          fmt_money(dp, "last_payment_made", "balance_digits"),
-        "BALANCE_WORDS":           g(dp, "balance_words"),
+        "BALANCE_WORDS":           g(dp, "total_balance_remaining_in_words", "balance_words"),
         "PAYMENT_START_DATE":      payment_start,
         "PAYMENT_DURATION_MONTHS": g(dp, "payment_type", "payment_duration_months"),
         "PAYMENT_END_DATE":        g(dp, "payment_end_date"),
