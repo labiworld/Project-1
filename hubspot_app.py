@@ -124,23 +124,32 @@ def build_contract_data(contact, deal=None):
 
     num_plots = g(dp, "number_of_plot", "num_plots_words")
 
+    # Format deal createdate as "11th June, 2026"
+    payment_start = ""
+    raw_date = dp.get("createdate", "")
+    if raw_date:
+        try:
+            from datetime import datetime as _dt
+            d = _dt.strptime(raw_date[:10], "%Y-%m-%d")
+            suffix = {1:"ST",2:"ND",3:"RD"}.get(d.day if d.day < 20 else d.day % 10, "TH")
+            payment_start = f"{d.day}{suffix} {d.strftime('%B').upper()}, {d.year}"
+        except:
+            payment_start = raw_date
+
     return {
         "CUSTOMER_NAME":           g(dp, "customer_name_full") or full_name,
         "CUSTOMER_ADDRESS":        g(dp, "customer_address") or address,
-        # "Number of Plot" in HubSpot → also auto-derive UPPER version
         "NUM_PLOTS_WORDS":         num_plots,
         "NUM_PLOTS_WORDS_UPPER":   num_plots.upper() if num_plots else "",
         "NUM_PLOTS_DIGITS":        num_plots,
-        # "Plot Size" in HubSpot
         "PLOT_SIZE_SQM":           g(dp, "plot_size", "plot_size_sqm"),
-        # "Amount" in HubSpot = Total Price
         "TOTAL_PRICE_DIGITS":      g(dp, "amount", "total_price_digits"),
         "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
         "DEPOSIT_DIGITS":          g(dp, "initial_payment", "deposit_digits"),
         "DEPOSIT_WORDS":           g(dp, "deposit_words"),
         "BALANCE_DIGITS":          g(dp, "last_payment_made", "balance_digits"),
         "BALANCE_WORDS":           g(dp, "balance_words"),
-        "PAYMENT_START_DATE":      g(dp, "expected_payment_date", "payment_start_date"),
+        "PAYMENT_START_DATE":      payment_start,
         "PAYMENT_DURATION_MONTHS": g(dp, "payment_type", "payment_duration_months"),
         "PAYMENT_END_DATE":        g(dp, "payment_end_date"),
         "PAYMENT_START_DAY_FULL":  g(dp, "payment_start_day_full"),
