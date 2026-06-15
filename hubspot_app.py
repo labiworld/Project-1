@@ -141,12 +141,12 @@ def build_contract_data(contact, deal=None):
         "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
         "DEPOSIT_DIGITS":          g(dp, "deposit_digits"),
         "DEPOSIT_WORDS":           g(dp, "deposit_words"),
-        # Balance — try several possible internal names
-        "BALANCE_DIGITS":          g(dp, "total_balance_remaining", "hs_balance", "balance_digits", "balance"),
+        # Balance — not yet in HubSpot, will show as missing (yellow)
+        "BALANCE_DIGITS":          g(dp, "total_balance_remaining", "balance_digits", "balance"),
         "BALANCE_WORDS":           g(dp, "balance_words"),
         "PAYMENT_START_DATE":      g(dp, "payment_start_date"),
-        # Installmental plan — try several possible internal names
-        "PAYMENT_DURATION_MONTHS": g(dp, "installmental_plan_monthly_", "installmental_plan", "installment_plan", "payment_duration_months"),
+        # Installment plan — not yet in HubSpot, will show as missing (yellow)
+        "PAYMENT_DURATION_MONTHS": g(dp, "installmental_plan", "installment_plan", "payment_duration_months"),
         "PAYMENT_END_DATE":        g(dp, "payment_end_date"),
         "PAYMENT_START_DAY_FULL":  g(dp, "payment_start_day_full"),
     }
