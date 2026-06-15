@@ -59,7 +59,6 @@ def get_contact(contact_id):
 
 def get_deals_for_contact(contact_id):
     """Fetch deals associated with a contact."""
-    # Get associated deals
     r = requests.get(
         f"https://api.hubapi.com/crm/v3/objects/contacts/{contact_id}/associations/deals",
         headers=hs_headers()
@@ -68,9 +67,22 @@ def get_deals_for_contact(contact_id):
         return []
     deal_ids = [a["id"] for a in r.json().get("results", [])]
     deals = []
+    props = ",".join([
+        "dealname", "closedate",
+        # Standard HubSpot field
+        "amount",
+        # Custom fields (exact internal names from HubSpot)
+        "total_balance_remaining", "balance_digits", "balance_words",
+        "plot_size", "plot_size_sqm",
+        "number_of_plot", "num_plots_words", "num_plots_upper",
+        "installmental_plan", "payment_duration_months",
+        "total_price_digits", "total_price_words",
+        "deposit_digits", "deposit_words",
+        "payment_start_date", "payment_end_date", "payment_start_day_full",
+    ])
     for did in deal_ids[:5]:
         dr = requests.get(
-            f"https://api.hubapi.com/crm/v3/objects/deals/{did}?properties=dealname,amount,closedate,num_plots,num_plots_words,num_plots_upper,plot_size_sqm,total_price_digits,total_price_words,deposit_digits,deposit_words,balance_digits,balance_words,payment_start_date,payment_duration_months,payment_end_date,payment_start_day_full",
+            f"https://api.hubapi.com/crm/v3/objects/deals/{did}?properties={props}",
             headers=hs_headers()
         )
         if dr.status_code == 200:
@@ -116,18 +128,23 @@ def build_contract_data(contact, deal=None):
     return {
         "CUSTOMER_NAME":           g(dp, "customer_name_full") or full_name,
         "CUSTOMER_ADDRESS":        g(dp, "customer_address") or address,
-        "NUM_PLOTS_WORDS":         g(dp, "num_plots_words", "num_plots"),
-        "NUM_PLOTS_WORDS_UPPER":   g(dp, "num_plots_upper", "num_plots_words"),
-        "NUM_PLOTS_DIGITS":        g(dp, "num_plots_digits", "num_plots"),
-        "PLOT_SIZE_SQM":           g(dp, "plot_size_sqm"),
-        "TOTAL_PRICE_DIGITS":      g(dp, "total_price_digits", "amount"),
+        # "Number of Plot" in HubSpot
+        "NUM_PLOTS_WORDS":         g(dp, "number_of_plot", "num_plots_words"),
+        "NUM_PLOTS_WORDS_UPPER":   g(dp, "num_plots_upper", "number_of_plot"),
+        "NUM_PLOTS_DIGITS":        g(dp, "number_of_plot", "num_plots_digits"),
+        # "Plot Size" in HubSpot
+        "PLOT_SIZE_SQM":           g(dp, "plot_size", "plot_size_sqm"),
+        # "Amount" in HubSpot = Total Price
+        "TOTAL_PRICE_DIGITS":      g(dp, "amount", "total_price_digits"),
         "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
         "DEPOSIT_DIGITS":          g(dp, "deposit_digits"),
         "DEPOSIT_WORDS":           g(dp, "deposit_words"),
-        "BALANCE_DIGITS":          g(dp, "balance_digits"),
+        # "Total Balance Remaining" in HubSpot
+        "BALANCE_DIGITS":          g(dp, "total_balance_remaining", "balance_digits"),
         "BALANCE_WORDS":           g(dp, "balance_words"),
         "PAYMENT_START_DATE":      g(dp, "payment_start_date"),
-        "PAYMENT_DURATION_MONTHS": g(dp, "payment_duration_months"),
+        # "Installmental Plan {Monthly}" in HubSpot
+        "PAYMENT_DURATION_MONTHS": g(dp, "installmental_plan", "payment_duration_months"),
         "PAYMENT_END_DATE":        g(dp, "payment_end_date"),
         "PAYMENT_START_DAY_FULL":  g(dp, "payment_start_day_full"),
     }
