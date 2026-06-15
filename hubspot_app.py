@@ -453,11 +453,22 @@ def api_contact(contact_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/debug-schema")
+def api_debug_schema():
+    """Return all custom deal property names from HubSpot account."""
+    try:
+        r = requests.get("https://api.hubapi.com/crm/v3/properties/deals", headers=hs_headers())
+        props = r.json().get("results", [])
+        custom = {p["name"]: p["label"] for p in props if not p["name"].startswith("hs_") and not p.get("hidden")}
+        return jsonify(custom)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/debug-deal/<contact_id>")
 def api_debug_deal(contact_id):
-    """Return ALL raw HubSpot deal properties to find exact internal names."""
+    """Return raw HubSpot deal properties."""
     try:
-        # Get deal ID first
         r = requests.get(
             f"https://api.hubapi.com/crm/v3/objects/contacts/{contact_id}/associations/deals",
             headers=hs_headers()
@@ -465,22 +476,17 @@ def api_debug_deal(contact_id):
         deal_ids = [a["id"] for a in r.json().get("results", [])]
         if not deal_ids:
             return jsonify({"error": "No deals found for this contact"})
-        # Fetch ALL properties for the deal
-        dr = requests.get(
-            f"https://api.hubapi.com/crm/v3/objects/deals/{deal_ids[0]}?properties=&propertiesWithHistory=&associations=",
-            headers=hs_headers()
-        )
-        # Also fetch the deal with no property filter to get everything
-        dr2 = requests.get(
-            f"https://api.hubapi.com/crm/v3/objects/deals/{deal_ids[0]}",
-            headers=hs_headers()
-        )
-        all_props = dr2.json().get("properties", {})
-        filtered = {k: v for k, v in all_props.items() if v and not k.startswith("hs_") and k not in ("createdate","closedate")}
-        # Also get full property list from HubSpot schema
+        # Fetch deal with ALL properties by getting schema first then requesting them all
         schema_r = requests.get("https://api.hubapi.com/crm/v3/properties/deals", headers=hs_headers())
-        custom_props = {p["name"]: p["label"] for p in schema_r.json().get("results", []) if not p["name"].startswith("hs_")}
-        return jsonify({"deal_properties_with_values": filtered, "all_custom_property_names": custom_props})
+        all_prop_names = [p["name"] for p in schema_r.json().get("results", [])]
+        props_param = ",".join(all_prop_names)
+        dr = requests.get(
+            f"https://api.hubapi.com/crm/v3/objects/deals/{deal_ids[0]}?properties={props_param}",
+            headers=hs_headers()
+        )
+        all_props = dr.json().get("properties", {})
+        filtered = {k: v for k, v in all_props.items() if v and not k.startswith("hs_")}
+        return jsonify(filtered)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
