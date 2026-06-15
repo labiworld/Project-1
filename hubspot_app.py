@@ -122,7 +122,18 @@ def build_contract_data(contact, deal=None):
     address_parts = [cp.get("address",""), cp.get("city",""), cp.get("state","")]
     address = ", ".join(p for p in address_parts if p).upper()
 
-    num_plots = g(dp, "number_of_plot", "num_plots_words")
+    _num_words = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten"]
+    raw_plots = dp.get("number_of_plot", "") or ""
+    try:
+        n = int(float(raw_plots.strip()))
+        word = _num_words[n] if 0 < n < len(_num_words) else raw_plots
+        num_plots_words = f"{word} ({n})"
+        num_plots_upper = f"{word.upper()} ({n})"
+        num_plots_digits = str(n)
+    except:
+        num_plots_words = raw_plots
+        num_plots_upper = raw_plots.upper()
+        num_plots_digits = raw_plots
 
     # Format deal createdate as "11th June, 2026"
     payment_start = ""
@@ -139,9 +150,9 @@ def build_contract_data(contact, deal=None):
     return {
         "CUSTOMER_NAME":           g(dp, "customer_name_full") or full_name,
         "CUSTOMER_ADDRESS":        g(dp, "customer_address") or address,
-        "NUM_PLOTS_WORDS":         num_plots,
-        "NUM_PLOTS_WORDS_UPPER":   num_plots.upper() if num_plots else "",
-        "NUM_PLOTS_DIGITS":        num_plots,
+        "NUM_PLOTS_WORDS":         num_plots_words,
+        "NUM_PLOTS_WORDS_UPPER":   num_plots_upper,
+        "NUM_PLOTS_DIGITS":        num_plots_digits,
         "PLOT_SIZE_SQM":           g(dp, "plot_size", "plot_size_sqm"),
         "TOTAL_PRICE_DIGITS":      g(dp, "amount", "total_price_digits"),
         "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
