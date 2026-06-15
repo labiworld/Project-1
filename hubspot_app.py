@@ -69,13 +69,13 @@ def get_deals_for_contact(contact_id):
     deals = []
     props = ",".join([
         "dealname", "closedate", "amount",
-        "total_balance_remaining", "balance_digits", "balance_words",
+        "last_payment_made", "balance_digits", "balance_words",
         "plot_size", "plot_size_sqm",
         "number_of_plot", "num_plots_words", "num_plots_upper",
-        "installmental_plan_months_", "installmental_plan", "installment_plan", "payment_duration_months",
+        "payment_type", "payment_duration_months",
         "initial_payment", "deposit_digits", "deposit_words",
         "total_price_digits", "total_price_words",
-        "payment_start_date", "payment_end_date", "payment_start_day_full",
+        "expected_payment_date", "payment_start_date", "payment_end_date", "payment_start_day_full",
     ])
     for did in deal_ids[:5]:
         dr = requests.get(
@@ -138,11 +138,10 @@ def build_contract_data(contact, deal=None):
         "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
         "DEPOSIT_DIGITS":          g(dp, "initial_payment", "deposit_digits"),
         "DEPOSIT_WORDS":           g(dp, "deposit_words"),
-        # Balance — not yet in HubSpot, will show as missing (yellow)
-        "BALANCE_DIGITS":          g(dp, "total_balance_remaining", "balance_digits", "balance"),
+        "BALANCE_DIGITS":          g(dp, "last_payment_made", "balance_digits"),
         "BALANCE_WORDS":           g(dp, "balance_words"),
-        "PAYMENT_START_DATE":      g(dp, "payment_start_date"),
-        "PAYMENT_DURATION_MONTHS": g(dp, "installmental_plan_months_", "installmental_plan", "installment_plan", "payment_duration_months"),
+        "PAYMENT_START_DATE":      g(dp, "expected_payment_date", "payment_start_date"),
+        "PAYMENT_DURATION_MONTHS": g(dp, "payment_type", "payment_duration_months"),
         "PAYMENT_END_DATE":        g(dp, "payment_end_date"),
         "PAYMENT_START_DAY_FULL":  g(dp, "payment_start_day_full"),
     }
