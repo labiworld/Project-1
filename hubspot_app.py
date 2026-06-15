@@ -31,12 +31,15 @@ def hs_headers():
 
 
 def get_contacts(limit=30):
-    """Fetch the 30 most recently created contacts from HubSpot."""
+    """Fetch the 30 most recently updated CUSTOMERS (not leads) from HubSpot."""
     props = ["firstname", "lastname", "email", "phone", "address", "city", "state"]
     payload = {
         "limit": limit,
         "properties": props,
-        "sorts": [{"propertyName": "createdate", "direction": "DESCENDING"}],
+        "filters": [
+            {"propertyName": "lifecyclestage", "operator": "EQ", "value": "customer"}
+        ],
+        "sorts": [{"propertyName": "lastmodifieddate", "direction": "DESCENDING"}],
     }
     r = requests.post(
         "https://api.hubapi.com/crm/v3/objects/contacts/search",
