@@ -150,6 +150,17 @@ def build_contract_data(contact, deal=None):
         except:
             payment_start = raw_date
 
+    def fmt_money(d, *keys):
+        """Fetch a number field and format it with commas e.g. 1750000 → 1,750,000"""
+        for k in keys:
+            v = d.get(k)
+            if v:
+                try:
+                    return f"{float(str(v).replace(',','').strip()):,.0f}"
+                except:
+                    return str(v).upper()
+        return ""
+
     return {
         "CUSTOMER_NAME":           g(dp, "customer_name_full") or full_name,
         "CUSTOMER_ADDRESS":        g(dp, "customer_address") or address,
@@ -157,11 +168,11 @@ def build_contract_data(contact, deal=None):
         "NUM_PLOTS_WORDS_UPPER":   num_plots_upper,
         "NUM_PLOTS_DIGITS":        num_plots_digits,
         "PLOT_SIZE_SQM":           g(dp, "plot_size", "plot_size_sqm"),
-        "TOTAL_PRICE_DIGITS":      g(dp, "amount", "total_price_digits"),
+        "TOTAL_PRICE_DIGITS":      fmt_money(dp, "amount", "total_price_digits"),
         "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
-        "DEPOSIT_DIGITS":          g(dp, "initial_payment", "deposit_digits"),
+        "DEPOSIT_DIGITS":          fmt_money(dp, "initial_payment", "deposit_digits"),
         "DEPOSIT_WORDS":           g(dp, "deposit_words"),
-        "BALANCE_DIGITS":          g(dp, "last_payment_made", "balance_digits"),
+        "BALANCE_DIGITS":          fmt_money(dp, "last_payment_made", "balance_digits"),
         "BALANCE_WORDS":           g(dp, "balance_words"),
         "PAYMENT_START_DATE":      payment_start,
         "PAYMENT_DURATION_MONTHS": g(dp, "payment_type", "payment_duration_months"),
