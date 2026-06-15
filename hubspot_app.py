@@ -78,7 +78,7 @@ def get_deals_for_contact(contact_id):
         "payment_type", "payment_duration_months",
         "initial_payment", "initial_payment_in_words", "deposit_digits", "deposit_words",
         "total_price_digits", "total_price_words", "amount_in_words",
-        "expected_payment_date", "payment_start_date", "payment_end_date", "payment_start_day_full",
+        "payment_start_date", "payment_end_date", "payment_deadline_date_caps",
     ])
     for did in deal_ids[:5]:
         dr = requests.get(
@@ -138,17 +138,26 @@ def build_contract_data(contact, deal=None):
         num_plots_upper = raw_plots.upper()
         num_plots_digits = raw_plots
 
-    # Format deal createdate as "11th June, 2026"
-    payment_start = ""
-    raw_date = dp.get("createdate", "")
-    if raw_date:
+    def fmt_date(raw, caps=False):
+        """Convert 2027-03-26T... → '26th March, 2027' or '26TH MARCH, 2027'"""
+        if not raw:
+            return ""
         try:
             from datetime import datetime as _dt
-            d = _dt.strptime(raw_date[:10], "%Y-%m-%d")
-            suffix = {1:"ST",2:"ND",3:"RD"}.get(d.day if d.day < 20 else d.day % 10, "TH")
-            payment_start = f"{d.day}{suffix} {d.strftime('%B').upper()}, {d.year}"
+            d = _dt.strptime(str(raw)[:10], "%Y-%m-%d")
+            day = d.day
+            suffix = {1:"st",2:"nd",3:"rd"}.get(day if day < 20 else day % 10, "th")
+            month = d.strftime("%B")
+            if caps:
+                return f"{day}{suffix.upper()} {month.upper()}, {d.year}"
+            else:
+                return f"{day}{suffix} {month}, {d.year}"
         except:
-            payment_start = raw_date
+            return str(raw)
+
+    payment_start    = fmt_date(dp.get("payment_start_date", ""))
+    payment_end      = fmt_date(dp.get("payment_end_date", ""))
+    payment_deadline = fmt_date(dp.get("payment_deadline_date_caps", dp.get("payment_end_date", "")), caps=True)
 
     def fmt_money(d, *keys):
         """Fetch a number field and format it with commas e.g. 1750000 → 1,750,000"""
@@ -176,8 +185,8 @@ def build_contract_data(contact, deal=None):
         "BALANCE_WORDS":           g(dp, "total_balance_remaining_in_words", "balance_words"),
         "PAYMENT_START_DATE":      payment_start,
         "PAYMENT_DURATION_MONTHS": g(dp, "payment_type", "payment_duration_months"),
-        "PAYMENT_END_DATE":        g(dp, "payment_end_date"),
-        "PAYMENT_START_DAY_FULL":  g(dp, "payment_start_day_full"),
+        "PAYMENT_END_DATE":        payment_end,
+        "PAYMENT_START_DAY_FULL":  payment_deadline,
     }
 
 
