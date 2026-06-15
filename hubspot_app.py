@@ -68,16 +68,13 @@ def get_deals_for_contact(contact_id):
     deal_ids = [a["id"] for a in r.json().get("results", [])]
     deals = []
     props = ",".join([
-        "dealname", "closedate",
-        # Standard HubSpot field
-        "amount",
-        # Custom fields (exact internal names from HubSpot)
+        "dealname", "closedate", "amount",
         "total_balance_remaining", "balance_digits", "balance_words",
         "plot_size", "plot_size_sqm",
         "number_of_plot", "num_plots_words", "num_plots_upper",
-        "installmental_plan", "payment_duration_months",
+        "installmental_plan_months_", "installmental_plan", "installment_plan", "payment_duration_months",
+        "initial_payment", "deposit_digits", "deposit_words",
         "total_price_digits", "total_price_words",
-        "deposit_digits", "deposit_words",
         "payment_start_date", "payment_end_date", "payment_start_day_full",
     ])
     for did in deal_ids[:5]:
@@ -139,14 +136,13 @@ def build_contract_data(contact, deal=None):
         # "Amount" in HubSpot = Total Price
         "TOTAL_PRICE_DIGITS":      g(dp, "amount", "total_price_digits"),
         "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
-        "DEPOSIT_DIGITS":          g(dp, "deposit_digits"),
+        "DEPOSIT_DIGITS":          g(dp, "initial_payment", "deposit_digits"),
         "DEPOSIT_WORDS":           g(dp, "deposit_words"),
         # Balance — not yet in HubSpot, will show as missing (yellow)
         "BALANCE_DIGITS":          g(dp, "total_balance_remaining", "balance_digits", "balance"),
         "BALANCE_WORDS":           g(dp, "balance_words"),
         "PAYMENT_START_DATE":      g(dp, "payment_start_date"),
-        # Installment plan — not yet in HubSpot, will show as missing (yellow)
-        "PAYMENT_DURATION_MONTHS": g(dp, "installmental_plan", "installment_plan", "payment_duration_months"),
+        "PAYMENT_DURATION_MONTHS": g(dp, "installmental_plan_months_", "installmental_plan", "installment_plan", "payment_duration_months"),
         "PAYMENT_END_DATE":        g(dp, "payment_end_date"),
         "PAYMENT_START_DAY_FULL":  g(dp, "payment_start_day_full"),
     }
