@@ -113,7 +113,7 @@ def build_contract_data(contact, deal=None):
     def g(d, *keys, default=""):
         for k in keys:
             v = d.get(k)
-            if v: return v
+            if v: return str(v).upper()
         return default
 
     # Customer name
@@ -122,16 +122,18 @@ def build_contract_data(contact, deal=None):
     full_name = f"{first} {last}".strip().upper()
 
     # Address
-    address_parts = [g(cp, "address"), g(cp, "city"), g(cp, "state")]
-    address = ", ".join(p for p in address_parts if p)
+    address_parts = [cp.get("address",""), cp.get("city",""), cp.get("state","")]
+    address = ", ".join(p for p in address_parts if p).upper()
+
+    num_plots = g(dp, "number_of_plot", "num_plots_words")
 
     return {
         "CUSTOMER_NAME":           g(dp, "customer_name_full") or full_name,
         "CUSTOMER_ADDRESS":        g(dp, "customer_address") or address,
-        # "Number of Plot" in HubSpot
-        "NUM_PLOTS_WORDS":         g(dp, "number_of_plot", "num_plots_words"),
-        "NUM_PLOTS_WORDS_UPPER":   g(dp, "num_plots_upper", "number_of_plot"),
-        "NUM_PLOTS_DIGITS":        g(dp, "number_of_plot", "num_plots_digits"),
+        # "Number of Plot" in HubSpot → also auto-derive UPPER version
+        "NUM_PLOTS_WORDS":         num_plots,
+        "NUM_PLOTS_WORDS_UPPER":   num_plots.upper() if num_plots else "",
+        "NUM_PLOTS_DIGITS":        num_plots,
         # "Plot Size" in HubSpot
         "PLOT_SIZE_SQM":           g(dp, "plot_size", "plot_size_sqm"),
         # "Amount" in HubSpot = Total Price
@@ -139,12 +141,12 @@ def build_contract_data(contact, deal=None):
         "TOTAL_PRICE_WORDS":       g(dp, "total_price_words"),
         "DEPOSIT_DIGITS":          g(dp, "deposit_digits"),
         "DEPOSIT_WORDS":           g(dp, "deposit_words"),
-        # "Total Balance Remaining" in HubSpot
-        "BALANCE_DIGITS":          g(dp, "total_balance_remaining", "balance_digits"),
+        # Balance — try several possible internal names
+        "BALANCE_DIGITS":          g(dp, "total_balance_remaining", "hs_balance", "balance_digits", "balance"),
         "BALANCE_WORDS":           g(dp, "balance_words"),
         "PAYMENT_START_DATE":      g(dp, "payment_start_date"),
-        # "Installmental Plan {Monthly}" in HubSpot
-        "PAYMENT_DURATION_MONTHS": g(dp, "installmental_plan", "payment_duration_months"),
+        # Installmental plan — try several possible internal names
+        "PAYMENT_DURATION_MONTHS": g(dp, "installmental_plan_monthly_", "installmental_plan", "installment_plan", "payment_duration_months"),
         "PAYMENT_END_DATE":        g(dp, "payment_end_date"),
         "PAYMENT_START_DAY_FULL":  g(dp, "payment_start_day_full"),
     }
@@ -451,6 +453,21 @@ def api_contact(contact_id):
         deal    = deals[0] if deals else None
         data    = build_contract_data(contact, deal)
         return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/debug-deal/<contact_id>")
+def api_debug_deal(contact_id):
+    """Return raw HubSpot deal properties so we can see exact internal names."""
+    try:
+        deals = get_deals_for_contact(contact_id)
+        if not deals:
+            return jsonify({"error": "No deals found for this contact"})
+        raw_props = deals[0].get("properties", {})
+        # Filter out empty/null values and HubSpot system fields
+        filtered = {k: v for k, v in raw_props.items() if v and not k.startswith("hs_")}
+        return jsonify(filtered)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
