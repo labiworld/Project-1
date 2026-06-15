@@ -455,15 +455,32 @@ def api_contact(contact_id):
 
 @app.route("/api/debug-deal/<contact_id>")
 def api_debug_deal(contact_id):
-    """Return raw HubSpot deal properties so we can see exact internal names."""
+    """Return ALL raw HubSpot deal properties to find exact internal names."""
     try:
-        deals = get_deals_for_contact(contact_id)
-        if not deals:
+        # Get deal ID first
+        r = requests.get(
+            f"https://api.hubapi.com/crm/v3/objects/contacts/{contact_id}/associations/deals",
+            headers=hs_headers()
+        )
+        deal_ids = [a["id"] for a in r.json().get("results", [])]
+        if not deal_ids:
             return jsonify({"error": "No deals found for this contact"})
-        raw_props = deals[0].get("properties", {})
-        # Filter out empty/null values and HubSpot system fields
-        filtered = {k: v for k, v in raw_props.items() if v and not k.startswith("hs_")}
-        return jsonify(filtered)
+        # Fetch ALL properties for the deal
+        dr = requests.get(
+            f"https://api.hubapi.com/crm/v3/objects/deals/{deal_ids[0]}?properties=&propertiesWithHistory=&associations=",
+            headers=hs_headers()
+        )
+        # Also fetch the deal with no property filter to get everything
+        dr2 = requests.get(
+            f"https://api.hubapi.com/crm/v3/objects/deals/{deal_ids[0]}",
+            headers=hs_headers()
+        )
+        all_props = dr2.json().get("properties", {})
+        filtered = {k: v for k, v in all_props.items() if v and not k.startswith("hs_") and k not in ("createdate","closedate")}
+        # Also get full property list from HubSpot schema
+        schema_r = requests.get("https://api.hubapi.com/crm/v3/properties/deals", headers=hs_headers())
+        custom_props = {p["name"]: p["label"] for p in schema_r.json().get("results", []) if not p["name"].startswith("hs_")}
+        return jsonify({"deal_properties_with_values": filtered, "all_custom_property_names": custom_props})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
