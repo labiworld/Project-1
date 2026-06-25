@@ -282,8 +282,12 @@ DASHBOARD_HTML = """
   {% endif %}
 
   <div class="top-bar">
-    <h2>Recent Customers ({{ contacts|length }})</h2>
-    <button class="btn-refresh" onclick="location.reload()">↻ Refresh</button>
+    <h2>Customers — latest first (<span id="shown-count">{{ contacts|length }}</span> shown)</h2>
+    <button class="btn-refresh" onclick="location.reload()">&#8635; Refresh</button>
+  </div>
+  <div class="search-bar">
+    <input type="text" id="search-input" placeholder="Search by name, email or phone..." oninput="filterContacts()" />
+    <span class="search-count" id="search-count"></span>
   </div>
 
   <!-- Desktop table -->
@@ -292,6 +296,7 @@ DASHBOARD_HTML = """
     <table>
       <thead>
         <tr>
+          <th>#</th>
           <th>Customer Name</th>
           <th>Email</th>
           <th>Phone</th>
@@ -300,7 +305,8 @@ DASHBOARD_HTML = """
       </thead>
       <tbody>
         {% for c in contacts %}
-        <tr>
+        <tr class="contact-row" data-search="{{ c.name|lower }} {{ c.email|lower }} {{ c.phone|lower }}">
+          <td style="color:#aaa;font-size:.8rem;">{{ loop.index }}</td>
           <td><strong>{{ c.name }}</strong></td>
           <td>{{ c.email or '—' }}</td>
           <td>{{ c.phone or '—' }}</td>
@@ -313,6 +319,7 @@ DASHBOARD_HTML = """
         {% endfor %}
       </tbody>
     </table>
+    <div class="no-results" id="no-results-table">No customers match your search.</div>
     {% else %}
     <div class="empty">No contacts found in HubSpot.</div>
     {% endif %}
@@ -453,6 +460,23 @@ function downloadContract() {
     btn.textContent = 'Generate & Download COS';
     btn.disabled = false;
   });
+}
+
+function filterContacts() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  const rows = document.querySelectorAll('.contact-row');
+  let visible = 0;
+  rows.forEach(r => {
+    const match = !q || r.dataset.search.includes(q);
+    r.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const noT = document.getElementById('no-results-table');
+  if (noT) noT.style.display = (q && visible === 0) ? 'block' : 'none';
+  const countEl = document.getElementById('search-count');
+  const shownEl = document.getElementById('shown-count');
+  if (q) { countEl.textContent = visible + ' results'; if (shownEl) shownEl.textContent = visible; }
+  else { countEl.textContent = ''; if (shownEl) shownEl.textContent = rows.length; }
 }
 
 // Close modal on overlay click
