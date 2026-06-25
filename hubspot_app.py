@@ -36,9 +36,11 @@ def get_contacts(limit=30):
     payload = {
         "limit": limit,
         "properties": props,
-        "filters": [
-            {"propertyName": "lifecyclestage", "operator": "EQ", "value": "customer"}
-        ],
+        "filterGroups": [{
+            "filters": [
+                {"propertyName": "lifecyclestage", "operator": "EQ", "value": "customer"}
+            ]
+        }],
         "sorts": [{"propertyName": "lastmodifieddate", "direction": "DESCENDING"}],
     }
     r = requests.post(
