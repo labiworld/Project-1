@@ -214,6 +214,11 @@ DASHBOARD_HTML = """
     .top-bar h2 { font-size: 1rem; color: #1a4b2e; }
     .btn-refresh { background: #1a4b2e; color: #fff; border: none; padding: 9px 20px; border-radius: 6px; cursor: pointer; font-size: .88rem; font-weight: 600; }
     .btn-refresh:hover { background: #145c2e; }
+    .search-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .search-bar input { flex: 1; padding: 10px 14px; border: 1px solid #cdd5e0; border-radius: 8px; font-size: .92rem; outline: none; transition: border-color .2s; }
+    .search-bar input:focus { border-color: #1a4b2e; box-shadow: 0 0 0 3px rgba(26,75,46,.1); }
+    .search-bar .search-count { font-size: .82rem; color: #888; white-space: nowrap; }
+    .no-results { text-align: center; padding: 40px; color: #888; display: none; }
     .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.07); overflow: hidden; }
     table { width: 100%; border-collapse: collapse; }
     th { background: #f0f4f1; text-align: left; padding: 12px 16px; font-size: .78rem; text-transform: uppercase; letter-spacing: .5px; color: #555; border-bottom: 1px solid #e0e8e2; }
